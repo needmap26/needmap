@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users can read any profile, only write their own
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == uid;
+      
+      match /coinTransactions/{txId} {
+        allow read: if request.auth.uid == uid;
+        allow write: if request.auth.uid == uid;
+      }
+    }
+    
+    // Needs: anyone logged in can read, 
+    // only NGO admins can create/update
+    match /needs/{needId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ngo_admin';
+      allow update: if request.auth != null;
+    }
+    
+    // Tasks: volunteers and NGO admins can read/write
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Notifications: users can only read their own
+    match /notifications/{notifId} {
+      allow read, write: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+    }
+    
+    // Stats: anyone logged in can read
+    match /stats/{statId} {
+      allow read: if request.auth != null;
+      allow write: if false; // only updated server-side or by very specific logic (prevent default write)
+    }
+    
+    // Redemptions: users can read their own
+    match /redemptions/{redId} {
+      allow read: if request.auth != null && 
+        resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+
+    // Conversations: participants can read/write
+    match /conversations/{convId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid in resource.data.participants;
+      allow create: if request.auth != null;
+
+      match /messages/{msgId} {
+        allow read, write: if request.auth != null &&
+          request.auth.uid in 
+          get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+      }
+    }
+  }
+}

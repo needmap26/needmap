@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: #1D9E75;
+  --color-primary-dark: #085041;
+  --color-primary-light: #E1F5EE;
+  --color-accent: #BA7517;
+  --color-danger: #E24B4A;
+  
+  --color-background: #FAFAF9;
+  --color-foreground: #1A1A1A;
+  --color-text-secondary: #5F5E5A;
+
+  --color-badge-critical-bg: #FCEBEB;
+  --color-badge-critical-text: #A32D2D;
+  --color-badge-high-bg: #FAEEDA;
+  --color-badge-high-text: #633806;
+  --color-badge-medium-bg: #FEFCE8;
+  --color-badge-medium-text: #713F12;
+  --color-badge-low-bg: #E1F5EE;
+  --color-badge-low-text: #085041;
+
+  --font-inter: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-inter);
+}
+
+/* Base utility for hiding scrollbar if needed */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
