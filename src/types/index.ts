@@ -1,4 +1,4 @@
-export type UserRole = "ngo_admin" | "volunteer" | "ngo";
+export type UserRole = "ngo" | "volunteer";
 
 export interface User {
   uid: string;
@@ -44,6 +44,7 @@ export interface UserProfile {
   totalNeedsPosted?: number;
   totalResolved?: number;
   activeVolunteers?: number;
+  hasNgoProfile?: boolean;
 }
 
 export type UrgencyLabel = "critical" | "high" | "medium" | "low";

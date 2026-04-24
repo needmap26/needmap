@@ -28,7 +28,7 @@ export const TaskCard = ({ task, need, onComplete }: TaskCardProps) => {
       const isNGO = user.uid === need.postedBy;
       const otherUser = isNGO 
         ? { uid: task.volunteerId, name: task.volunteerName || 'Volunteer', role: 'volunteer' }
-        : { uid: need.postedBy, name: need.ngoName, role: 'ngo_admin' };
+        : { uid: need.postedBy, name: need.ngoName, role: 'ngo' };
         
       const convId = await getOrCreateConversation(user, otherUser, need.id);
       router.push(`/messages/${convId}`);

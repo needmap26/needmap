@@ -14,7 +14,7 @@ import { ChatSkeleton } from "@/components/ui/Skeletons";
 export default function ChatWindowPage() {
   const { convId } = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   
   const [messages, setMessages] = useState<Record<string, any>[]>([]);
   const [conversation, setConversation] = useState<Record<string, any> | null>(null);
@@ -24,6 +24,8 @@ export default function ChatWindowPage() {
   const [clearing, setClearing] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [otherUser, setOtherUser] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     if (!user || !convId) return;
@@ -40,6 +42,17 @@ export default function ChatWindowPage() {
           return;
         }
         setConversation({ id: docSnap.id, ...data });
+        
+        // Fetch other user
+        const otherUid = data.participants.find((id: string) => id !== user.uid);
+        if (otherUid) {
+          const userDoc = await getDoc(doc(db, "users", otherUid));
+          if (userDoc.exists()) {
+            setOtherUser(userDoc.data());
+          } else {
+            setOtherUser({ name: data.participantNames?.[otherUid] || "User" });
+          }
+        }
         
         // Mark as read when opening
         await markAsRead(convId as string, user.uid);
@@ -75,7 +88,8 @@ export default function ChatWindowPage() {
     setSending(true);
 
     try {
-      await sendMessage(convId as string, user, msgText, otherUid!);
+      const sender = profile || user;
+      await sendMessage(convId as string, sender, msgText, otherUid!);
       toast.success("Message sent", { duration: 1500, id: "msg-send" });
     } catch {
       toast.error("Chat temporarily unavailable");
@@ -108,9 +122,9 @@ export default function ChatWindowPage() {
   }
 
   const otherUid = (conversation.participants as string[]).find((uid: string) => uid !== user.uid) as string;
-  const otherName = (conversation.participantNames as Record<string, string>)?.[otherUid] || 'User';
-  const otherPhoto = (conversation.participantPhotos as Record<string, string>)?.[otherUid];
-  const otherRole = (conversation.participantRoles as Record<string, string>)?.[otherUid] || 'volunteer';
+  const otherName = otherUser?.name || 'User';
+  const otherPhoto = otherUser?.profileImage || '';
+  const otherRole = otherUser?.role || 'volunteer';
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#FAFAF9]">
@@ -122,7 +136,7 @@ export default function ChatWindowPage() {
               <ArrowLeft size={24} />
             </Link>
             
-            <Link href={`/${otherRole === 'ngo_admin' ? 'ngo' : 'volunteer'}/${otherUid}`} className="flex items-center gap-3">
+            <Link href={`/${otherRole === 'ngo' ? 'ngo' : 'volunteer'}/${otherUid}`} className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 shrink-0 bg-primary-light flex items-center justify-center text-primary font-bold">
                 {otherPhoto ? (
                   <img src={otherPhoto} alt={otherName} className="w-full h-full object-cover" />
@@ -132,7 +146,7 @@ export default function ChatWindowPage() {
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-foreground leading-tight">{otherName}</span>
-                <span className="text-xs text-text-secondary capitalize">{otherRole === 'ngo_admin' ? 'NGO Admin' : 'Volunteer'}</span>
+                <span className="text-xs text-text-secondary capitalize">{otherRole === 'ngo' ? 'NGO Admin' : 'Volunteer'}</span>
               </div>
             </Link>
           </div>

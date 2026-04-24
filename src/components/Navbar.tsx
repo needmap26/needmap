@@ -48,7 +48,7 @@ export const Navbar = () => {
   }, [user?.uid]);
 
 
-  const navLinks = (profile?.role === "ngo_admin" || profile?.role === "ngo") ? [
+  const navLinks = (profile?.role === "ngo") ? [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
     { name: "Post Need", href: "/post-need", icon: <HeartHandshake size={18} /> },
     { name: "Volunteers", href: "/volunteers", icon: <UserCircle size={18} /> },
@@ -113,7 +113,7 @@ export const Navbar = () => {
                     )}
                   </button>
 
-                  <Link href={`/${profile?.role === 'ngo_admin' ? 'ngo' : 'volunteer'}/${profile?.uid}`} className="flex items-center gap-2 hover:bg-gray-50 p-1 pr-3 rounded-full transition-colors border border-transparent hover:border-[#E5E3DB]">
+                  <Link href={`/${profile?.role === 'ngo' ? 'ngo' : 'volunteer'}/${profile?.uid}`} className="flex items-center gap-2 hover:bg-gray-50 p-1 pr-3 rounded-full transition-colors border border-transparent hover:border-[#E5E3DB]">
                     <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 flex-shrink-0">
                       {profile?.profileImage ? (
                         <img src={profile.profileImage} alt={profile.name} className="w-full h-full object-cover" />
@@ -206,7 +206,7 @@ export const Navbar = () => {
               
               {user ? (
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <Link href={`/${profile?.role === 'ngo_admin' ? 'ngo' : 'volunteer'}/${profile?.uid}`} onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2">
+                  <Link href={`/${profile?.role === 'ngo' ? 'ngo' : 'volunteer'}/${profile?.uid}`} onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2">
                      <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0">
                       {profile?.profileImage ? (
                         <img src={profile.profileImage} alt={profile.name} className="w-full h-full object-cover" />

@@ -30,3 +30,10 @@ export const uploadCoverImage = async (file: File, uid: string): Promise<string>
   await uploadBytes(storageRef, compressedFile);
   return await getDownloadURL(storageRef);
 };
+
+export const uploadImage = async (file: File, path: string): Promise<string> => {
+  const compressedFile = await compressImage(file);
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, compressedFile);
+  return await getDownloadURL(storageRef);
+};

@@ -121,7 +121,7 @@ export default function AnalyticsPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]"><div className="w-8 h-8 border-4 animate-spin border-primary rounded-full border-t-transparent"></div></div>;
 
   return (
-    <ProtectedRoute allowedRoles={["ngo_admin"]}>
+    <ProtectedRoute allowedRoles={["ngo"]}>
       <div className="flex flex-col min-h-screen bg-[#FAFAF9]">
         <Navbar />
         

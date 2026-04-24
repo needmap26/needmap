@@ -27,7 +27,7 @@ export default function NGOProfilePage() {
     try {
       const convId = await getOrCreateConversation(
         user,
-        { uid: ngoId, name: profile.ngoName, role: 'ngo_admin' },
+        { uid: ngoId, name: profile.ngoName, role: 'ngo' },
         undefined
       );
       router.push(`/messages/${convId}`);
@@ -42,7 +42,7 @@ export default function NGOProfilePage() {
     const fetchNGO = async () => {
       try {
         const userDoc = await getDoc(doc(db, "users", ngoId));
-        if (userDoc.exists() && userDoc.data().role === "ngo_admin") {
+        if (userDoc.exists() && userDoc.data().role === "ngo") {
           setProfile(userDoc.data() as UserProfile);
           
           const needsQuery = query(collection(db, "needs"), where("postedBy", "==", ngoId), where("status", "==", "open"));

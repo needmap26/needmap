@@ -198,7 +198,7 @@ const PostNeedForm = () => {
 
 export default function PostNeedPage() {
   return (
-    <ProtectedRoute allowedRoles={["ngo_admin"]}>
+    <ProtectedRoute allowedRoles={["ngo"]}>
       <div className="flex flex-col min-h-screen bg-[#FAFAF9]">
         <Navbar />
         <PostNeedForm />

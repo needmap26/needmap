@@ -10,76 +10,36 @@ import { User } from '@/types'
 // Find existing conversation between two users
 // or create a new one
 export const getOrCreateConversation = async (
-  currentUser: User,
-  otherUser: User,
+  currentUser: any,
+  otherUser: any,
   relatedNeedId?: string
 ): Promise<string> => {
   if (!currentUser?.uid || !otherUser?.uid) {
     throw new Error("Missing user IDs to create conversation");
   }
 
-  const isCurrentNGO = currentUser.role === 'ngo_admin' || currentUser.role === 'ngo';
-  const ngoId = isCurrentNGO ? String(currentUser.uid) : String(otherUser.uid);
-  const volunteerId = isCurrentNGO ? String(otherUser.uid) : String(currentUser.uid);
-
-  // Use the format: needId_ngoId_volunteerId
-  const convId = relatedNeedId 
-    ? `${relatedNeedId}_${ngoId}_${volunteerId}` 
-    : `${[String(currentUser.uid), String(otherUser.uid)].sort().join('_')}`;
+  const convId = [String(currentUser.uid), String(otherUser.uid)].sort().join('_');
 
   const convRef = doc(db, 'conversations', convId);
   const convSnap = await getDoc(convRef);
 
   if (convSnap.exists()) {
-    if (relatedNeedId && convSnap.data().relatedNeedId !== relatedNeedId) {
-      await updateDoc(convRef, { relatedNeedId });
-    }
     return convId;
-  }
-
-  let otherName = otherUser?.name as string;
-  let otherRole = otherUser?.role as string;
-  let otherPhoto = otherUser?.profileImage as string;
-
-  // Try to fetch if missing
-  if (!otherName) {
-    try {
-      const uSnap = await getDoc(doc(db, 'users', String(otherUser.uid)));
-      if (uSnap.exists()) {
-        const uData = uSnap.data();
-        otherName = uData.name || "Unknown User";
-        otherRole = uData.role || "volunteer";
-        otherPhoto = uData.profileImage || "";
-      }
-    } catch (err) {
-      console.warn("Failed to fetch other user details", err);
-    }
   }
 
   // Create new conversation document
   await setDoc(convRef, {
+    id: convId,
     participants: [currentUser.uid, otherUser.uid],
     participantNames: {
-      [String(currentUser.uid)]: currentUser?.name || "Sender",
-      [String(otherUser.uid)]: otherName || "Unknown User",
-    },
-    participantPhotos: {
-      [String(currentUser.uid)]: currentUser?.profileImage || '',
-      [String(otherUser.uid)]: otherPhoto || '',
-    },
-    participantRoles: {
-      [String(currentUser.uid)]: currentUser?.role || 'volunteer',
-      [String(otherUser.uid)]: otherRole || 'ngo',
+      [currentUser.uid]: currentUser.displayName || currentUser.name || "Unknown User",
+      [otherUser.uid]: otherUser.displayName || otherUser.name || "Unknown User"
     },
     lastMessage: '',
-    updatedAt: serverTimestamp(),
     lastMessageSenderId: '',
-    unreadCount: {
-      [String(currentUser.uid)]: 0,
-      [String(otherUser.uid)]: 0,
-    },
-    relatedNeedId: relatedNeedId || null,
+    updatedAt: serverTimestamp(),
     createdAt: serverTimestamp(),
+    relatedNeedId: relatedNeedId || null
   });
   
   return convId;
@@ -87,7 +47,7 @@ export const getOrCreateConversation = async (
 
 export const sendMessage = async (
   convId: string,
-  sender: User,
+  sender: any,
   text: string,
   otherUid: string,
   imageUrl: string | null = null
@@ -97,29 +57,22 @@ export const sendMessage = async (
   }
 
   try {
-    // Add message to top-level collection
+    // Add message to subcollection
     await addDoc(
-      collection(db, 'messages'),
+      collection(db, 'conversations', convId, 'messages'),
       {
-        conversationId: convId,
         senderId: sender.uid,
-        senderName: sender.name || "User",
-        senderPhoto: sender.profileImage || '',
+        senderName: sender.displayName || sender.name || "Unknown User",
         text: text.trim(),
-        type: imageUrl ? 'image' : 'text',
-        imageUrl: imageUrl,
-        createdAt: serverTimestamp(),
-        read: false,
-        readAt: null,
+        createdAt: serverTimestamp()
       }
     );
 
     // Update conversation metadata
     await updateDoc(doc(db, 'conversations', convId), {
-      lastMessage: imageUrl ? 'Sent an image' : text.trim(),
-      updatedAt: serverTimestamp(),
+      lastMessage: text.trim(),
       lastMessageSenderId: sender.uid,
-      [`unreadCount.${otherUid}`]: increment(1),
+      updatedAt: serverTimestamp()
     });
   } catch (error) {
     console.error("Failed to send message:", error);
@@ -144,8 +97,7 @@ export const subscribeToMessages = (
 ) => {
   if (!convId) return () => {};
   const q = query(
-    collection(db, 'messages'),
-    where('conversationId', '==', convId),
+    collection(db, 'conversations', convId, 'messages'),
     orderBy('createdAt', 'asc'),
     limit(100)
   )
@@ -188,7 +140,7 @@ export const subscribeToConversations = (
 export const clearChat = async (convId: string): Promise<void> => {
   if (!convId) throw new Error("Invalid conversation ID");
   try {
-    const q = query(collection(db, 'messages'), where('conversationId', '==', convId));
+    const q = query(collection(db, 'conversations', convId, 'messages'));
     const snap = await getDocs(q);
     
     if (snap.docs.length > 0) {

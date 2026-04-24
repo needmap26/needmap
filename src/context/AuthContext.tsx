@@ -38,20 +38,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (unsubProfile) unsubProfile(); // Clean up previous listener
           
-          unsubProfile = onSnapshot(docRef, (docSnap) => {
+          unsubProfile = onSnapshot(docRef, async (docSnap) => {
             if (docSnap.exists()) {
-              setProfile(docSnap.data() as UserProfile);
+              const userData = docSnap.data() as UserProfile;
+              if (userData.role === "ngo") {
+                const ngoDoc = await getDoc(doc(db, "ngos", firebaseUser.uid));
+                userData.hasNgoProfile = ngoDoc.exists();
+              } else {
+                userData.hasNgoProfile = true;
+              }
+              setProfile(userData);
             } else {
-              // Create default profile automatically
-              const defaultProfile = {
-                uid: firebaseUser.uid,
-                name: firebaseUser.displayName || "New User",
-                email: firebaseUser.email || "",
-                role: "volunteer",
-                createdAt: Date.now(),
-              };
-              setDoc(docRef, defaultProfile).catch(e => console.warn(e));
-              setProfile(defaultProfile as UserProfile);
+              setProfile(null);
             }
             setLoading(false);
           }, (error) => {
@@ -81,6 +79,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (unsubProfile) unsubProfile();
     };
   }, []);
+
+  // Global route protection for incomplete NGO profiles
+  useEffect(() => {
+    if (!loading && profile && profile.role === "ngo" && profile.hasNgoProfile === false) {
+      if (window.location.pathname !== "/complete-profile") {
+        router.push("/complete-profile");
+      }
+    }
+  }, [loading, profile, router]);
 
   const logout = async () => {
     try {

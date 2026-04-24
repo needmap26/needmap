@@ -13,7 +13,7 @@ export default function RootPage() {
       if (!user) {
         router.push("/auth");
       } else if (profile) {
-        router.push(profile.role === "ngo_admin" ? "/dashboard" : "/volunteer");
+        router.push(profile.role === "ngo" ? "/dashboard" : "/volunteer");
       } else {
         router.push("/complete-profile");
       }

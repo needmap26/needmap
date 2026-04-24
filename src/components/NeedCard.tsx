@@ -39,7 +39,7 @@ export const NeedCard = ({ need, onAction, actionLabel, onNavigate, isActiveNavi
     try {
       const convId = await getOrCreateConversation(
         user,
-        { uid: need.postedBy, name: need.ngoName, role: 'ngo_admin' },
+        { uid: need.postedBy, name: need.ngoName, role: 'ngo' },
         need.id
       );
       router.push(`/messages/${convId}`);

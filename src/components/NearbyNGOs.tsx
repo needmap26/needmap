@@ -56,7 +56,7 @@ export function NearbyNGOs() {
   const loadNearbyNGOs = async (loc: {lat: number, lng: number} | null) => {
     let ngoList: any[] = [];
     try {
-      const q = query(collection(db, "users"), where("role", "==", "ngo_admin"));
+      const q = query(collection(db, "users"), where("role", "==", "ngo"));
       const snapshot = await getDocs(q);
       
       snapshot.forEach(doc => {
@@ -157,7 +157,7 @@ export function NearbyNGOs() {
     try {
       const convId = await getOrCreateConversation(
         user,
-        { uid: ngo.id, name: ngo.name || "NGO Admin", role: 'ngo_admin' }
+        { uid: ngo.id, name: ngo.name || "NGO Admin", role: 'ngo' }
       );
       router.push(`/messages/${convId}`);
     } catch (error) {

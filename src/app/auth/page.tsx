@@ -8,7 +8,7 @@ import {
   sendEmailVerification,
   User 
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { signInWithGoogle, createDemoGuestSession } from "@/lib/auth";
 import { Navbar } from "@/components/Navbar";
@@ -36,10 +36,26 @@ function AuthContent() {
     if (userDoc.exists()) {
       toast.success("Successfully logged in!");
       const userData = userDoc.data();
-      router.push(userData.role === 'ngo_admin' ? '/dashboard' : '/map');
+      const userRole = userData.role;
+      if (userRole === 'ngo') {
+        const ngoDoc = await getDoc(doc(db, "ngos", user.uid));
+        if (!ngoDoc.exists()) {
+          router.push('/complete-profile');
+          return;
+        }
+      }
+      router.push(userRole === 'ngo' ? '/dashboard' : '/volunteer');
     } else {
+      // Create user doc
+      const newRole = role === "ngo" ? "ngo" : role;
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: (user as User).email || "",
+        role: newRole,
+        createdAt: Date.now()
+      });
       // Send to complete profile if they just signed up via Google/Demo
-      router.push(`/complete-profile?role=${role}`);
+      router.push(`/complete-profile`);
     }
   };
 
@@ -60,7 +76,7 @@ function AuthContent() {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await sendEmailVerification(cred.user);
         toast.success("Account created! Please check your email to verify.");
-        router.push(`/complete-profile?role=${role}`);
+        await handleAuthSuccess(cred.user);
       }
     } catch (error: unknown) {
       toast.error((error as Error).message || "An error occurred");
@@ -126,8 +142,8 @@ function AuthContent() {
             Volunteer
           </button>
           <button
-            onClick={() => setRole("ngo_admin")}
-            className={`py-2 text-sm font-medium rounded-md transition-colors ${role === "ngo_admin" ? "bg-white text-primary shadow-sm" : "text-text-secondary"}`}
+            onClick={() => setRole("ngo")}
+            className={`py-2 text-sm font-medium rounded-md transition-colors ${role === "ngo" ? "bg-white text-primary shadow-sm" : "text-text-secondary"}`}
           >
             NGO Admin
           </button>

@@ -11,21 +11,44 @@ import { MessageListSkeleton } from "@/components/ui/Skeletons";
 export default function MessagesListPage() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Record<string, any>[]>([]);
+  const [usersCache, setUsersCache] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = subscribeToConversations(user.uid, (convs) => {
+    const unsubscribe = subscribeToConversations(user.uid, async (convs) => {
       setConversations(convs);
+      
+      // Fetch missing user data
+      const newCache = { ...usersCache };
+      let updated = false;
+      
+      for (const conv of convs) {
+        const otherUid = conv.participants.find((uid: string) => uid !== user.uid);
+        if (otherUid && !newCache[otherUid]) {
+          const { doc, getDoc } = await import("firebase/firestore");
+          const { db } = await import("@/lib/firebase");
+          const userDoc = await getDoc(doc(db, "users", otherUid));
+          if (userDoc.exists()) {
+            newCache[otherUid] = userDoc.data();
+            updated = true;
+          } else {
+            newCache[otherUid] = { name: conv.participantNames?.[otherUid] || "User" };
+            updated = true;
+          }
+        }
+      }
+      
+      if (updated) setUsersCache(newCache);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, usersCache]);
 
   const filteredConversations = conversations.filter(conv => {
     const otherUid = conv.participants.find((uid: string) => uid !== user?.uid);
-    const otherName = conv.participantNames[otherUid] || 'Unknown User';
+    const otherName = usersCache[otherUid]?.name || conv.participantNames?.[otherUid] || 'User';
     return otherName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -105,9 +128,9 @@ export default function MessagesListPage() {
               <ul className="divide-y divide-gray-100">
                 {filteredConversations.map(conv => {
                   const otherUid = conv.participants.find((uid: string) => uid !== user.uid);
-                  const otherName = conv.participantNames?.[otherUid] || 'Unknown User';
-                  const otherPhoto = conv.participantPhotos?.[otherUid];
-                  const otherRole = conv.participantRoles?.[otherUid];
+                  const otherName = usersCache[otherUid]?.name || conv.participantNames?.[otherUid] || 'User';
+                  const otherPhoto = usersCache[otherUid]?.profileImage;
+                  const otherRole = usersCache[otherUid]?.role;
                   const unreadCount = conv.unreadCount?.[user.uid] || 0;
                   
                   return (
@@ -127,13 +150,13 @@ export default function MessagesListPage() {
                               {otherName}
                             </h3>
                             <span className={`text-xs whitespace-nowrap ml-2 ${unreadCount > 0 ? 'text-primary font-bold' : 'text-gray-400'}`}>
-                              {getRelativeTime(conv.lastMessageTime)}
+                              {getRelativeTime(conv.updatedAt)}
                             </span>
                           </div>
                           
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono uppercase tracking-wide">
-                              {otherRole === 'ngo_admin' ? 'NGO' : 'Volunteer'}
+                              {otherRole === 'ngo' ? 'NGO' : 'Volunteer'}
                             </span>
                             {conv.relatedNeedId && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded font-mono truncate max-w-[100px]">
