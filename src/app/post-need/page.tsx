@@ -9,41 +9,7 @@ import { Navbar } from "@/components/Navbar";
 import { SkillSelector } from "@/components/ui/SkillSelector";
 import { NeedCategory } from "@/types";
 import toast from "react-hot-toast";
-import { APIProvider, useMapsLibrary } from "@vis.gl/react-google-maps";
-
-const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-
-const PlacesAutocomplete = ({ onPlaceSelect }: { onPlaceSelect: (place: google.maps.places.PlaceResult | null) => void }) => {
-  const [inputValue, setInputValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const places = useMapsLibrary('places');
-
-  useEffect(() => {
-    if (!places || !inputRef.current) return;
-    
-    const ac = new places.Autocomplete(inputRef.current, {
-      fields: ["formatted_address", "geometry", "name", "address_components"],
-    });
-
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      setInputValue(place.formatted_address || place.name || "");
-      onPlaceSelect(place);
-    });
-  }, [places, onPlaceSelect]);
-
-  return (
-    <input
-      ref={inputRef}
-      value={inputValue}
-      onChange={(e) => setInputValue(e.target.value)}
-      required
-      placeholder="Start typing to search address..."
-      className="w-full px-4 py-2 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-    />
-  );
-};
-
+import { NominatimSearch, LocationData } from "@/components/NominatimSearch";
 const PostNeedForm = () => {
   const router = useRouter();
   const { profile } = useAuth();
@@ -53,16 +19,16 @@ const PostNeedForm = () => {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<NeedCategory>("food");
   const [contactNumber, setContactNumber] = useState("");
-  const [peopleAffected, setPeopleAffected] = useState(1);
+  const [peopleAffected, setPeopleAffected] = useState<number | "">(1);
   const [requiredSkills, setRequiredSkills] = useState<string[]>([]);
   
   // Location
-  const [locationRaw, setLocationRaw] = useState<google.maps.places.PlaceResult | null>(null);
+  const [locationRaw, setLocationRaw] = useState<LocationData | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return toast.error("Not authenticated");
-    if (!locationRaw?.geometry?.location) return toast.error("Please select a valid address from the dropdown");
+    if (!locationRaw) return toast.error("Please select a valid address from the dropdown");
     
     setLoading(true);
     const toastId = toast.loading("Analyzing need with AI...");
@@ -76,7 +42,6 @@ const PostNeedForm = () => {
       });
       
       const analysis = await res.json();
-      console.log("Gemini AI Analysis Result:", analysis);
       if (!res.ok) {
         console.warn("AI Analysis failed, using fallbacks:", analysis.error);
         // We don't throw here, we use the fallback values provided in the response
@@ -85,40 +50,45 @@ const PostNeedForm = () => {
       toast.loading("Saving need to database...", { id: toastId });
 
       // 2. Extract location details
-      const lat = locationRaw.geometry.location.lat();
-      const lng = locationRaw.geometry.location.lng();
-      const address = locationRaw.formatted_address || "";
-      
-      let city = "";
-      locationRaw.address_components?.forEach(component => {
-        if (component.types.includes("locality") || component.types.includes("administrative_area_level_2")) {
-          city = component.long_name;
-        }
-      });
-      if (!city) city = "Unknown";
+      const lat = locationRaw.lat;
+      const lng = locationRaw.lng;
+      const address = locationRaw.address || "";
+      const city = locationRaw.city || "Unknown";
 
       // 3. Save to Firestore
       const newNeed = {
         title,
         description,
         category: analysis.category || category,
-        priority: analysis.priority || "medium",
-        isEmergency: analysis.priority === "critical",
+        priority: analysis.urgency || "medium",
+        isEmergency: analysis.urgency === "high" || analysis.urgency === "critical",
+        priorityScore: analysis.priorityScore || 50,
+        keywords: analysis.keywords || [],
+        suggestedAction: analysis.suggestedAction || "",
+        aiClassified: true,
         location: { lat, lng, address, city },
-        status: "pending",
+        status: "open",
         postedBy: profile.uid,
         ngoName: profile.ngoName || "Unknown NGO",
         contactNumber,
         assignedVolunteer: null,
         createdAt: Date.now(),
-        peopleAffected,
+        peopleAffected: peopleAffected || 1,
         requiredSkills: requiredSkills.length > 0 ? requiredSkills : [],
       };
 
       const docRef = await addDoc(collection(db, "needs"), newNeed);
-      console.log("Firestore Write Success! ID:", docRef.id);
       
       toast.success("Need posted successfully!", { id: toastId });
+      
+      // Clear form after submission
+      setTitle("");
+      setDescription("");
+      setCategory("food");
+      setContactNumber("");
+      setPeopleAffected(1);
+      setRequiredSkills([]);
+      
       router.push("/dashboard");
     } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.error(error);
@@ -143,7 +113,7 @@ const PostNeedForm = () => {
             required
             maxLength={100}
             placeholder="E.g. Emergency Food Supply Needed"
-            className="w-full px-4 py-2 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -152,7 +122,7 @@ const PostNeedForm = () => {
         <div>
           <label className="block text-sm font-bold text-foreground mb-1">Category</label>
           <select
-            className="w-full px-4 py-2 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             value={category}
             onChange={(e) => setCategory(e.target.value as NeedCategory)}
           >
@@ -170,7 +140,7 @@ const PostNeedForm = () => {
           <textarea
             required
             rows={4}
-            className="w-full px-4 py-2 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none"
+            className="w-full px-4 py-3 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -182,7 +152,7 @@ const PostNeedForm = () => {
             type="tel"
             required
             placeholder="E.g. +1 234 567 8900"
-            className="w-full px-4 py-2 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             value={contactNumber}
             onChange={(e) => setContactNumber(e.target.value)}
           />
@@ -191,7 +161,7 @@ const PostNeedForm = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-bold text-foreground mb-1">Location Address</label>
-            <PlacesAutocomplete onPlaceSelect={setLocationRaw} />
+            <NominatimSearch onLocationSelect={setLocationRaw} />
           </div>
           <div>
             <label className="block text-sm font-bold text-foreground mb-1">People Affected</label>
@@ -199,9 +169,9 @@ const PostNeedForm = () => {
               type="number"
               min={1}
               required
-              className="w-full px-4 py-2 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              value={peopleAffected}
-              onChange={(e) => setPeopleAffected(parseInt(e.target.value))}
+              className="w-full px-4 py-3 border border-[#E5E3DB] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              value={peopleAffected ?? ""}
+              onChange={(e) => setPeopleAffected(e.target.value ? Number(e.target.value) : "")}
             />
           </div>
         </div>
@@ -231,9 +201,7 @@ export default function PostNeedPage() {
     <ProtectedRoute allowedRoles={["ngo_admin"]}>
       <div className="flex flex-col min-h-screen bg-[#FAFAF9]">
         <Navbar />
-        <APIProvider apiKey={mapsApiKey} libraries={['places']}>
-          <PostNeedForm />
-        </APIProvider>
+        <PostNeedForm />
       </div>
     </ProtectedRoute>
   );

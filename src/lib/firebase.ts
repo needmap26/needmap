@@ -19,7 +19,7 @@ if (missingKeys.length > 0 && typeof window !== "undefined") {
 }
 
 if (typeof window !== "undefined") {
-  console.log("Initializing Firebase for project:", firebaseConfig.projectId);
+
 }
 
 // Ensure ONLY ONE Firebase app instance

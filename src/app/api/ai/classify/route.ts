@@ -22,13 +22,17 @@ export async function POST(req: Request) {
       
       Return ONLY a JSON object with the following structure:
       {
-        "category": "food" | "medical" | "shelter" | "education" | "disaster" | "other",
-        "priority": "low" | "medium" | "high" | "critical"
+        "category": "food" | "medical" | "shelter" | "general" | "other",
+        "urgency": "low" | "medium" | "high",
+        "priorityScore": 1-100,
+        "keywords": ["array of 3-5 keywords"],
+        "suggestedAction": "short recommendation for volunteers"
       }
       
       Rules:
-      - Category must be one of: food, medical, shelter, education, disaster, other.
-      - Priority must be one of: low, medium, high, critical.
+      - Category must be one of: food, medical, shelter, general, other.
+      - Urgency must be one of: low, medium, high.
+      - PriorityScore must be an integer between 1 and 100 based on urgency, keywords (e.g. emergency, injured), and context.
       - Do not include any other text, markdown formatting, or explanations. Ensure the output is strictly valid JSON.
     `;
 
@@ -49,13 +53,16 @@ export async function POST(req: Request) {
     }
 
     // Validation & Fallbacks
-    const validCategories = ["food", "medical", "shelter", "education", "disaster", "other"];
-    const validPriorities = ["low", "medium", "high", "critical"];
+    const validCategories = ["food", "medical", "shelter", "general", "other"];
+    const validUrgency = ["low", "medium", "high"];
     
-    if (!validCategories.includes(analysis.category)) analysis.category = "other";
-    if (!validPriorities.includes(analysis.priority)) analysis.priority = "medium";
+    if (!validCategories.includes(analysis.category)) analysis.category = "general";
+    if (!validUrgency.includes(analysis.urgency)) analysis.urgency = "medium";
+    if (typeof analysis.priorityScore !== 'number') analysis.priorityScore = 50;
+    if (!Array.isArray(analysis.keywords)) analysis.keywords = [];
+    if (!analysis.suggestedAction) analysis.suggestedAction = "Assess the situation and provide appropriate assistance.";
 
-    console.log("AI Analysis Success:", analysis);
+
     return NextResponse.json(analysis);
 
   } catch (error: any) {
@@ -63,8 +70,11 @@ export async function POST(req: Request) {
     
     // Safety Fallback as requested
     return NextResponse.json({
-      category: "other",
-      priority: "medium",
+      category: "general",
+      urgency: "medium",
+      priorityScore: 50,
+      keywords: ["general"],
+      suggestedAction: "Check details manually and coordinate.",
       error: error.message
     }, { status: 200 }); // Return 200 to not break frontend flow
   }

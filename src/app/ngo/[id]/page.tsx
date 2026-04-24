@@ -70,8 +70,8 @@ export default function NGOProfilePage() {
     </div>
   );
 
-  const googleMapsUrl = profile.location 
-    ? `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_MAPS_API_KEY}&q=${profile.location.lat},${profile.location.lng}` 
+  const osmUrl = profile.location 
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${profile.location.lng - 0.01},${profile.location.lat - 0.01},${profile.location.lng + 0.01},${profile.location.lat + 0.01}&layer=mapnik&marker=${profile.location.lat},${profile.location.lng}` 
     : '';
 
   return (
@@ -179,13 +179,13 @@ export default function NGOProfilePage() {
               </div>
             </div>
 
-            {googleMapsUrl && (
+            {osmUrl && (
               <div className="bg-white rounded-xl border border-[#E5E3DB] shadow-sm overflow-hidden h-48 relative">
                 <iframe
                   width="100%"
                   height="100%"
                   frameBorder="0" style={{ border: 0 }}
-                  src={googleMapsUrl} allowFullScreen>
+                  src={osmUrl} allowFullScreen>
                 </iframe>
               </div>
             )}

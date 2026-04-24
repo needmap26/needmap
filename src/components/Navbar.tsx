@@ -4,11 +4,12 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Menu, X, Map as MapIcon, LayoutDashboard, HeartHandshake, LogOut, Bell, Settings, MessageSquare } from "lucide-react";
+import { Menu, X, Map as MapIcon, LayoutDashboard, HeartHandshake, LogOut, Bell, Settings, MessageSquare, Search, Building2, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationDrawer } from "./ui/NotificationDrawer";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import toast from "react-hot-toast";
 import { subscribeToConversations } from "@/lib/chat";
 
 export const Navbar = () => {
@@ -46,15 +47,15 @@ export const Navbar = () => {
     };
   }, [user?.uid]);
 
-  const navLinks = profile?.role === "ngo_admin" ? [
+
+  const navLinks = (profile?.role === "ngo_admin" || profile?.role === "ngo") ? [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
-    { name: "Live Map", href: "/map", icon: <MapIcon size={18} /> },
-    { name: "Volunteers", href: "/volunteers", icon: <HeartHandshake size={18} /> },
+    { name: "Post Need", href: "/post-need", icon: <HeartHandshake size={18} /> },
+    { name: "Volunteers", href: "/volunteers", icon: <UserCircle size={18} /> },
   ] : profile?.role === "volunteer" ? [
-    { name: "Tasks", href: "/volunteer", icon: <HeartHandshake size={18} /> },
-    { name: "Live Map", href: "/map", icon: <MapIcon size={18} /> },
-    { name: "Rewards", href: "/rewards", icon: <div className="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-[10px] font-black border border-amber-200">C</div> },
-    { name: "Leaderboard", href: "/leaderboard", icon: <HeartHandshake size={18} /> }, // Can use a Trophy icon if imported, using Hand for now
+    { name: "Search", href: "/volunteer", icon: <Search size={18} /> },
+    { name: "NGOs", href: "/ngos", icon: <Building2 size={18} /> },
+    { name: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
   ] : [];
 
   return (
@@ -91,14 +92,6 @@ export const Navbar = () => {
               
               {user ? (
                 <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-200">
-                  {/* Coin Balance (Volunteers only) */}
-                  {profile?.role === 'volunteer' && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full font-bold text-amber-600 text-sm">
-                      <div className="w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center text-amber-900 text-[12px]">C</div>
-                      {profile.coins || 0}
-                    </div>
-                  )}
-
                   {/* Messages Bubble */}
                   <Link href="/messages" className="relative p-2 text-text-secondary hover:text-primary transition-colors">
                     <MessageSquare size={20} />
@@ -131,6 +124,7 @@ export const Navbar = () => {
                       )}
                     </div>
                   </Link>
+
 
                   <Link href="/settings" className="p-2 text-text-secondary hover:text-gray-800 transition-colors" title="Settings">
                     <Settings size={18} />
@@ -224,18 +218,13 @@ export const Navbar = () => {
                     </div>
                     <div>
                       <p className="font-medium text-foreground">{profile?.name}</p>
-                      {profile?.role === 'volunteer' && (
-                        <p className="text-xs text-amber-600 font-bold flex items-center gap-1 mt-1">
-                          <div className="w-3 h-3 rounded-full bg-amber-400 flex items-center justify-center text-amber-900 text-[8px]">C</div>
-                          {profile.coins || 0} Coins
-                        </p>
-                      )}
                     </div>
                   </Link>
 
                   <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-3 py-2 mt-2 text-base font-medium text-gray-700 hover:bg-gray-50 rounded-md">
                     <Settings size={20} /> Settings
                   </Link>
+
 
                   <button
                     onClick={() => {
@@ -271,46 +260,7 @@ export const Navbar = () => {
         )}
       </nav>
       
-      {/* Mobile Bottom Navigation Component omitted for brevity/moved to Layout, but kept simple here */}
-      {user && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E3DB] z-40 pb-safe">
-          <div className="flex justify-around items-center h-16">
-            {navLinks.slice(0, 5).map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className={cn(
-                  "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
-                  pathname === link.href
-                    ? "text-primary"
-                    : "text-text-secondary hover:text-primary"
-                )}
-              >
-                {link.icon}
-                <span className="text-[10px] font-medium leading-none">{link.name}</span>
-              </Link>
-            ))}
-            <Link
-              href={`/${profile?.role === 'ngo_admin' ? 'ngo' : 'volunteer'}/${profile?.uid}`}
-              className={cn(
-                "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
-                pathname.includes('/volunteer/') || pathname.includes('/ngo/')
-                  ? "text-primary"
-                  : "text-text-secondary hover:text-primary"
-              )}
-            >
-              <div className="w-5 h-5 rounded-full overflow-hidden border border-current">
-                {profile?.profileImage ? (
-                  <img src={profile.profileImage} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-current opacity-20"></div>
-                )}
-              </div>
-              <span className="text-[10px] font-medium leading-none">Profile</span>
-            </Link>
-          </div>
-        </div>
-      )}
+
 
       <NotificationDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>

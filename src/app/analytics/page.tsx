@@ -62,7 +62,7 @@ export default function AnalyticsPage() {
   }, [needs]);
 
   const statusData = useMemo(() => {
-    const counts: Record<string, number> = { open: 0, in_progress: 0, resolved: 0 };
+    const counts: Record<string, number> = { open: 0, in_progress: 0, completed: 0 };
     needs.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
     return Object.keys(counts).map(key => ({ name: key.replace('_', ' '), value: counts[key] }));
   }, [needs]);
@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
   }, [tasks]);
 
   const avgResolutionTime = useMemo(() => {
-    const resolved = needs.filter(n => n.status === 'resolved' && n.resolvedAt);
+    const resolved = needs.filter(n => n.status === 'completed' && n.resolvedAt);
     if (resolved.length === 0) return 0;
     const totalTime = resolved.reduce((acc, n) => acc + (n.resolvedAt! - n.createdAt), 0);
     return Math.floor(totalTime / resolved.length / (1000 * 60 * 60)); // hours

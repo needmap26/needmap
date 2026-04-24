@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/types";
 import { useRouter } from "next/navigation";
@@ -28,29 +28,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubProfile: (() => void) | null = null;
+    
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         try {
           const docRef = doc(db, "users", firebaseUser.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
-          } else {
+          
+          if (unsubProfile) unsubProfile(); // Clean up previous listener
+          
+          unsubProfile = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setProfile(docSnap.data() as UserProfile);
+            } else {
+              // Create default profile automatically
+              const defaultProfile = {
+                uid: firebaseUser.uid,
+                name: firebaseUser.displayName || "New User",
+                email: firebaseUser.email || "",
+                role: "volunteer",
+                createdAt: Date.now(),
+              };
+              setDoc(docRef, defaultProfile).catch(e => console.warn(e));
+              setProfile(defaultProfile as UserProfile);
+            }
+            setLoading(false);
+          }, (error) => {
+            console.error("Error fetching user profile:", error);
             setProfile(null);
-          }
+            setLoading(false);
+          });
+          
         } catch (error) {
-          console.error("Error fetching user profile:", error);
+          console.error("Error setting up profile listener:", error);
           setProfile(null);
+          setLoading(false);
         }
       } else {
         setUser(null);
         setProfile(null);
+        setLoading(false);
+        if (unsubProfile) {
+          unsubProfile();
+          unsubProfile = null;
+        }
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubProfile) unsubProfile();
+    };
   }, []);
 
   const logout = async () => {

@@ -35,7 +35,7 @@ function CompleteProfileContent() {
     }
     // If they already have a profile, redirect to dashboard/volunteer
     if (!authLoading && profile) {
-      router.push(profile.role === "ngo_admin" ? "/dashboard" : "/volunteer");
+      router.push(profile.role === "ngo_admin" ? "/dashboard" : "/map");
     }
   }, [user, profile, authLoading, router]);
 
@@ -58,7 +58,7 @@ function CompleteProfileContent() {
         profileImage = await uploadProfileImage(imageFile, user.uid);
       }
 
-      const userData: Record<string, unknown> = {
+      const userData: Record<string, any> = {
         uid: user.uid,
         email: user.email || user.phoneNumber || "",
         name: name || user.displayName || "Unknown",
@@ -74,7 +74,7 @@ function CompleteProfileContent() {
         userData.location = { lat: 0, lng: 0, city };
         userData.coins = 0;
         userData.level = "Newcomer";
-        userData.badges = [];
+        userData.badges = ["NeedMap Pioneer"];
         userData.totalTasksCompleted = 0;
         userData.totalHoursLogged = 0;
         userData.joinedAt = Date.now();
@@ -94,7 +94,7 @@ function CompleteProfileContent() {
       }
 
       toast.success("Profile completed successfully!");
-      router.push(role === "ngo_admin" ? "/dashboard" : "/volunteer");
+      router.push(role === "ngo_admin" ? "/dashboard" : "/map");
       // Force refresh to reload auth context profile
       window.location.reload();
     } catch (error: unknown) {
@@ -156,7 +156,7 @@ function CompleteProfileContent() {
           <input
             type="text"
             required
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={user.displayName || "e.g. Harshil Sanmber"}
@@ -166,7 +166,7 @@ function CompleteProfileContent() {
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">Bio</label>
           <textarea
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none"
+            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none"
             rows={3}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
@@ -181,7 +181,7 @@ function CompleteProfileContent() {
             <input
               type="text"
               required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
               value={ngoName}
               onChange={(e) => setNgoName(e.target.value)}
             />
@@ -194,7 +194,7 @@ function CompleteProfileContent() {
             type="text"
             required
             placeholder="E.g. New York, London, Mumbai"
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
             value={city}
             onChange={(e) => setCity(e.target.value)}
           />

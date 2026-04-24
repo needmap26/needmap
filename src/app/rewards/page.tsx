@@ -20,7 +20,7 @@ const REWARDS_STORE = [
 export default function RewardsPage() {
   const { user, profile } = useAuth();
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [successModal, setSuccessModal] = useState<Record<string, unknown> | null>(null);
+  const [successModal, setSuccessModal] = useState<Record<string, any> | null>(null);
 
   const coins = profile?.coins || 0;
 

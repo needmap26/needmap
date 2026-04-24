@@ -13,6 +13,7 @@ export const CategoryBadge = ({ category, className }: CategoryBadgeProps) => {
     medical: "bg-red-100 text-red-800",
     shelter: "bg-blue-100 text-blue-800",
     education: "bg-purple-100 text-purple-800",
+    general: "bg-amber-100 text-amber-800",
     other: "bg-gray-100 text-gray-800",
   };
 
@@ -21,6 +22,7 @@ export const CategoryBadge = ({ category, className }: CategoryBadgeProps) => {
     medical: "Medical",
     shelter: "Shelter",
     education: "Education",
+    general: "General",
     other: "Other",
   };
 

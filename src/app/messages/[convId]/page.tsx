@@ -4,21 +4,24 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { subscribeToMessages, markAsRead, sendMessage } from "@/lib/chat";
+import { subscribeToMessages, markAsRead, sendMessage, clearChat } from "@/lib/chat";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ArrowLeft, Send, Image as ImageIcon, MoreVertical, Link as LinkIcon, CheckCheck } from "lucide-react";
 import toast from "react-hot-toast";
+import { ChatSkeleton } from "@/components/ui/Skeletons";
 
 export default function ChatWindowPage() {
   const { convId } = useParams();
   const router = useRouter();
   const { user } = useAuth();
   
-  const [messages, setMessages] = useState<Record<string, unknown>[]>([]);
-  const [conversation, setConversation] = useState<Record<string, unknown> | null>(null);
+  const [messages, setMessages] = useState<Record<string, any>[]>([]);
+  const [conversation, setConversation] = useState<Record<string, any> | null>(null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -64,40 +67,53 @@ export default function ChatWindowPage() {
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!text.trim() || !user || !conversation) return;
+    if (!text.trim() || !user || !conversation || sending) return;
 
-    const otherUid = conversation.participants.find((uid: string) => uid !== user.uid);
+    const otherUid = (conversation.participants as string[]).find((uid: string) => uid !== user.uid);
     const msgText = text;
     setText(""); // clear immediately for UX
+    setSending(true);
 
     try {
-      await sendMessage(convId as string, user, msgText, otherUid);
+      await sendMessage(convId as string, user, msgText, otherUid!);
+      toast.success("Message sent", { duration: 1500, id: "msg-send" });
     } catch {
-      toast.error("Failed to send message");
+      toast.error("Chat temporarily unavailable");
+      setText(msgText); // restore message
+    } finally {
+      setSending(false);
     }
   };
 
-  const handleImageClick = () => {
-    // In a real app we'd open a file picker and upload to Firebase Storage
-    // Here we'll mock an image upload logic per instruction if needed or show a toast
-    toast("Image upload not implemented in this demo", { icon: "📸" });
+  const handleClearChat = async () => {
+    if (!window.confirm("Are you sure you want to clear this chat? This cannot be undone.")) return;
+    setClearing(true);
+    try {
+      await clearChat(convId as string);
+      toast.success("Chat cleared");
+    } catch (err) {
+      toast.error("Failed to clear chat");
+    } finally {
+      setClearing(false);
+    }
   };
 
   if (!user || loading || !conversation) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#FAFAF9]">
-        <div className="w-8 h-8 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
+      <div className="flex flex-col h-[100dvh] bg-[#FAFAF9]">
+        <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10 h-16"></header>
+        <ChatSkeleton />
       </div>
     );
   }
 
-  const otherUid = conversation.participants.find((uid: string) => uid !== user.uid);
-  const otherName = conversation.participantNames[otherUid] || 'Unknown User';
-  const otherPhoto = conversation.participantPhotos[otherUid];
-  const otherRole = conversation.participantRoles[otherUid];
+  const otherUid = (conversation.participants as string[]).find((uid: string) => uid !== user.uid) as string;
+  const otherName = (conversation.participantNames as Record<string, string>)?.[otherUid] || 'User';
+  const otherPhoto = (conversation.participantPhotos as Record<string, string>)?.[otherUid];
+  const otherRole = (conversation.participantRoles as Record<string, string>)?.[otherUid] || 'volunteer';
 
   return (
-    <div className="flex flex-col h-screen bg-[#FAFAF9]">
+    <div className="flex flex-col h-[100dvh] bg-[#FAFAF9]">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -127,6 +143,14 @@ export default function ChatWindowPage() {
                 <LinkIcon size={12} /> Related Task
               </span>
             )}
+            <button 
+              onClick={handleClearChat}
+              disabled={clearing}
+              className="px-3 py-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors text-sm font-bold"
+              title="Clear Chat"
+            >
+              {clearing ? "Clearing..." : "Clear"}
+            </button>
             <button className="p-2 text-gray-400 hover:text-gray-800 rounded-full transition-colors">
               <MoreVertical size={20} />
             </button>
@@ -212,8 +236,9 @@ export default function ChatWindowPage() {
         <div className="max-w-3xl mx-auto w-full relative flex items-end gap-2">
           <button 
             type="button" 
-            onClick={handleImageClick}
-            className="p-3 text-gray-400 hover:text-primary transition-colors rounded-full hover:bg-gray-50 shrink-0 mb-1"
+            disabled
+            title="Coming soon"
+            className="p-3 text-gray-300 transition-colors rounded-full shrink-0 mb-1 cursor-not-allowed"
           >
             <ImageIcon size={22} />
           </button>
@@ -240,10 +265,10 @@ export default function ChatWindowPage() {
 
           <button 
             onClick={handleSend}
-            disabled={!text.trim()}
-            className="p-3 bg-primary text-white rounded-full hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shrink-0 mb-1"
+            disabled={!text.trim() || sending}
+            className="bg-primary text-white rounded-full hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shrink-0 mb-1 h-12 w-12 flex items-center justify-center"
           >
-            <Send size={20} />
+            {sending ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Send size={20} />}
           </button>
         </div>
       </footer>

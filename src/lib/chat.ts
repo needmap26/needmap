@@ -2,86 +2,129 @@ import {
   collection, query, where, orderBy, limit,
   addDoc, updateDoc, doc, onSnapshot,
   serverTimestamp, getDocs,
-  increment
+  increment, setDoc, getDoc, writeBatch
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { User } from '@/types'
 
 // Find existing conversation between two users
 // or create a new one
 export const getOrCreateConversation = async (
-  currentUser: Record<string, unknown>,
-  otherUser: Record<string, unknown>,
+  currentUser: User,
+  otherUser: User,
   relatedNeedId?: string
 ): Promise<string> => {
-  // Query for existing conversation
-  const q = query(
-    collection(db, 'conversations'),
-    where('participants', 'array-contains', currentUser.uid)
-  )
-  const snap = await getDocs(q)
-  const existing = snap.docs.find(d =>
-    d.data().participants.includes(otherUser.uid)
-  )
-  if (existing) return existing.id
+  if (!currentUser?.uid || !otherUser?.uid) {
+    throw new Error("Missing user IDs to create conversation");
+  }
 
-  // Create new conversation
-  const convRef = await addDoc(collection(db, 'conversations'), {
+  const isCurrentNGO = currentUser.role === 'ngo_admin' || currentUser.role === 'ngo';
+  const ngoId = isCurrentNGO ? String(currentUser.uid) : String(otherUser.uid);
+  const volunteerId = isCurrentNGO ? String(otherUser.uid) : String(currentUser.uid);
+
+  // Use the format: needId_ngoId_volunteerId
+  const convId = relatedNeedId 
+    ? `${relatedNeedId}_${ngoId}_${volunteerId}` 
+    : `${[String(currentUser.uid), String(otherUser.uid)].sort().join('_')}`;
+
+  const convRef = doc(db, 'conversations', convId);
+  const convSnap = await getDoc(convRef);
+
+  if (convSnap.exists()) {
+    if (relatedNeedId && convSnap.data().relatedNeedId !== relatedNeedId) {
+      await updateDoc(convRef, { relatedNeedId });
+    }
+    return convId;
+  }
+
+  let otherName = otherUser?.name as string;
+  let otherRole = otherUser?.role as string;
+  let otherPhoto = otherUser?.profileImage as string;
+
+  // Try to fetch if missing
+  if (!otherName) {
+    try {
+      const uSnap = await getDoc(doc(db, 'users', String(otherUser.uid)));
+      if (uSnap.exists()) {
+        const uData = uSnap.data();
+        otherName = uData.name || "Unknown User";
+        otherRole = uData.role || "volunteer";
+        otherPhoto = uData.profileImage || "";
+      }
+    } catch (err) {
+      console.warn("Failed to fetch other user details", err);
+    }
+  }
+
+  // Create new conversation document
+  await setDoc(convRef, {
     participants: [currentUser.uid, otherUser.uid],
     participantNames: {
-      [currentUser.uid as string]: currentUser.name,
-      [otherUser.uid as string]: otherUser.name,
+      [String(currentUser.uid)]: currentUser?.name || "Sender",
+      [String(otherUser.uid)]: otherName || "Unknown User",
     },
     participantPhotos: {
-      [currentUser.uid as string]: currentUser.profileImage || '',
-      [otherUser.uid as string]: otherUser.profileImage || '',
+      [String(currentUser.uid)]: currentUser?.profileImage || '',
+      [String(otherUser.uid)]: otherPhoto || '',
     },
     participantRoles: {
-      [currentUser.uid as string]: currentUser.role,
-      [otherUser.uid as string]: otherUser.role,
+      [String(currentUser.uid)]: currentUser?.role || 'volunteer',
+      [String(otherUser.uid)]: otherRole || 'ngo',
     },
     lastMessage: '',
     updatedAt: serverTimestamp(),
     lastMessageSenderId: '',
     unreadCount: {
-      [currentUser.uid as string]: 0,
-      [otherUser.uid as string]: 0,
+      [String(currentUser.uid)]: 0,
+      [String(otherUser.uid)]: 0,
     },
     relatedNeedId: relatedNeedId || null,
     createdAt: serverTimestamp(),
-  })
-  return convRef.id
+  });
+  
+  return convId;
 }
 
 export const sendMessage = async (
   convId: string,
-  sender: Record<string, unknown>,
+  sender: User,
   text: string,
   otherUid: string,
   imageUrl: string | null = null
 ): Promise<void> => {
-  // Add message to top-level collection
-  await addDoc(
-    collection(db, 'messages'),
-    {
-      conversationId: convId,
-      senderId: sender.uid,
-      senderName: sender.name,
-      senderPhoto: sender.profileImage || '',
-      text: text.trim(),
-      type: imageUrl ? 'image' : 'text',
-      imageUrl: imageUrl,
-      createdAt: serverTimestamp(),
-      read: false,
-      readAt: null,
-    }
-  )
-  // Update conversation metadata
-  await updateDoc(doc(db, 'conversations', convId), {
-    lastMessage: imageUrl ? 'Sent an image' : text.trim(),
-    updatedAt: serverTimestamp(),
-    lastMessageSenderId: sender.uid,
-    [`unreadCount.${otherUid}`]: increment(1),
-  })
+  if (!convId || !sender?.uid || !text?.trim()) {
+    throw new Error("Invalid message parameters");
+  }
+
+  try {
+    // Add message to top-level collection
+    await addDoc(
+      collection(db, 'messages'),
+      {
+        conversationId: convId,
+        senderId: sender.uid,
+        senderName: sender.name || "User",
+        senderPhoto: sender.profileImage || '',
+        text: text.trim(),
+        type: imageUrl ? 'image' : 'text',
+        imageUrl: imageUrl,
+        createdAt: serverTimestamp(),
+        read: false,
+        readAt: null,
+      }
+    );
+
+    // Update conversation metadata
+    await updateDoc(doc(db, 'conversations', convId), {
+      lastMessage: imageUrl ? 'Sent an image' : text.trim(),
+      updatedAt: serverTimestamp(),
+      lastMessageSenderId: sender.uid,
+      [`unreadCount.${otherUid}`]: increment(1),
+    });
+  } catch (error) {
+    console.error("Failed to send message:", error);
+    throw new Error("Failed to send message");
+  }
 }
 
 // Mark messages as read
@@ -96,7 +139,7 @@ export const markAsRead = async (
 
 export const subscribeToMessages = (
   convId: string,
-  callback: (messages: Record<string, unknown>[]) => void,
+  callback: (messages: Record<string, any>[]) => void,
   onError?: (error: Error | unknown) => void
 ) => {
   if (!convId) return () => {};
@@ -121,7 +164,7 @@ export const subscribeToMessages = (
 // Listen to all conversations for a user
 export const subscribeToConversations = (
   uid: string,
-  callback: (convs: Record<string, unknown>[]) => void,
+  callback: (convs: Record<string, any>[]) => void,
   onError?: (error: Error | unknown) => void
 ) => {
   if (!uid) return () => {};
@@ -141,3 +184,28 @@ export const subscribeToConversations = (
     if (onError) onError(err);
   })
 }
+
+export const clearChat = async (convId: string): Promise<void> => {
+  if (!convId) throw new Error("Invalid conversation ID");
+  try {
+    const q = query(collection(db, 'messages'), where('conversationId', '==', convId));
+    const snap = await getDocs(q);
+    
+    if (snap.docs.length > 0) {
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => {
+        batch.delete(d.ref);
+      });
+      await batch.commit();
+    }
+
+    await updateDoc(doc(db, 'conversations', convId), {
+      lastMessage: '',
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Failed to clear chat:", error);
+    throw new Error("Failed to clear chat");
+  }
+}
+

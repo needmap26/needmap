@@ -6,10 +6,11 @@ import { useAuth } from "@/context/AuthContext";
 import { subscribeToConversations } from "@/lib/chat";
 import { Navbar } from "@/components/Navbar";
 import { Search, MessageSquare } from "lucide-react";
+import { MessageListSkeleton } from "@/components/ui/Skeletons";
 
 export default function MessagesListPage() {
   const { user } = useAuth();
-  const [conversations, setConversations] = useState<Record<string, unknown>[]>([]);
+  const [conversations, setConversations] = useState<Record<string, any>[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -50,9 +51,9 @@ export default function MessagesListPage() {
     return (
       <div className="min-h-screen bg-[#FAFAF9] flex flex-col">
         <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-           <div className="w-8 h-8 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
-        </div>
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+           <MessageListSkeleton />
+        </main>
       </div>
     );
   }
@@ -87,18 +88,16 @@ export default function MessagesListPage() {
           {/* Conversation List */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex justify-center py-20">
-                <div className="w-8 h-8 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
-              </div>
+              <MessageListSkeleton />
             ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
                   <MessageSquare size={40} className="text-gray-300" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">No conversations yet</h3>
+                  <h3 className="text-lg font-bold text-foreground">Start a conversation with NGOs</h3>
                   <p className="text-text-secondary mt-1 text-sm max-w-xs mx-auto">
-                    Start by messaging an NGO or volunteer from their profile or task cards.
+                    You have no active chats. Find an NGO on the map or their profile to begin.
                   </p>
                 </div>
               </div>

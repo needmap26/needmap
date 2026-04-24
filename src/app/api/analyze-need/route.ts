@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     if (!priorities.includes(analysis.priority)) analysis.priority = "medium";
     if (!Array.isArray(analysis.skills)) analysis.skills = [];
 
-    console.log("AI Analysis Success:", analysis);
+
     return NextResponse.json(analysis);
 
   } catch (error: any) {

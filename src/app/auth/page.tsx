@@ -36,7 +36,7 @@ function AuthContent() {
     if (userDoc.exists()) {
       toast.success("Successfully logged in!");
       const userData = userDoc.data();
-      router.push(userData.role === 'ngo_admin' ? '/dashboard' : '/volunteer');
+      router.push(userData.role === 'ngo_admin' ? '/dashboard' : '/map');
     } else {
       // Send to complete profile if they just signed up via Google/Demo
       router.push(`/complete-profile?role=${role}`);
@@ -141,7 +141,7 @@ function AuthContent() {
             <input
               type="email"
               required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -151,7 +151,7 @@ function AuthContent() {
             <input
               type="password"
               required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

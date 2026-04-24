@@ -1,4 +1,12 @@
-export type UserRole = "ngo_admin" | "volunteer";
+export type UserRole = "ngo_admin" | "volunteer" | "ngo";
+
+export interface User {
+  uid: string;
+  name?: string;
+  role?: string;
+  profileImage?: string;
+  [key: string]: any;
+}
 
 export interface UserProfile {
   uid: string;
@@ -39,8 +47,8 @@ export interface UserProfile {
 }
 
 export type UrgencyLabel = "critical" | "high" | "medium" | "low";
-export type NeedCategory = "food" | "medical" | "shelter" | "education" | "other";
-export type NeedStatus = "pending" | "open" | "in_progress" | "resolved";
+export type NeedCategory = "food" | "medical" | "shelter" | "education" | "general" | "other";
+export type NeedStatus = "pending" | "open" | "in_progress" | "completed";
 
 export interface Need {
   id?: string;
@@ -61,6 +69,12 @@ export interface Need {
   resolvedAt?: number | null;
   peopleAffected: number;
   requiredSkills: string[];
+  
+  // AI fields
+  priorityScore?: number;
+  keywords?: string[];
+  suggestedAction?: string;
+  aiClassified?: boolean;
 }
 
 export type TaskStatus = "accepted" | "in_progress" | "completed";

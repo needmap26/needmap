@@ -40,7 +40,7 @@ export const TaskCard = ({ task, need, onComplete }: TaskCardProps) => {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5E3DB] shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-xl border border-[#E5E3DB] shadow-sm overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300">
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <h3 className="text-lg font-bold text-foreground">
@@ -82,7 +82,7 @@ export const TaskCard = ({ task, need, onComplete }: TaskCardProps) => {
             />
             <button
               onClick={() => task.id && onComplete(task.id, notes)}
-              className="mt-3 w-full py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors shadow-sm flex justify-center items-center gap-2"
+              className="mt-3 w-full py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark active:scale-[0.98] transition-all shadow-sm flex justify-center items-center gap-2"
             >
               <CheckCircle size={18} /> Mark Complete
             </button>
@@ -110,7 +110,7 @@ export const TaskCard = ({ task, need, onComplete }: TaskCardProps) => {
           <button
             onClick={handleMessage}
             disabled={loadingChat}
-            className="w-full py-2 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex justify-center items-center gap-2 mt-2"
+            className="w-full py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm flex justify-center items-center gap-2 mt-2"
           >
             {loadingChat ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div> : <MessageSquare size={16} />}
             {user.uid === need?.postedBy ? 'Message Volunteer' : 'Message NGO'}
