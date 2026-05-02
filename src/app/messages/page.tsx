@@ -48,7 +48,12 @@ export default function MessagesListPage() {
 
   const filteredConversations = conversations.filter(conv => {
     const otherUid = conv.participants.find((uid: string) => uid !== user?.uid);
-    const otherName = usersCache[otherUid]?.name || conv.participantNames?.[otherUid] || 'User';
+    let otherName = usersCache[otherUid]?.name || conv.participantNames?.[otherUid] || 'User';
+    if (conv.ngoId === otherUid) {
+      otherName = conv.ngoName || conv.ngoAdminName || otherName;
+    } else if (conv.volunteerId === otherUid) {
+      otherName = conv.volunteerName || otherName;
+    }
     return otherName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -128,7 +133,12 @@ export default function MessagesListPage() {
               <ul className="divide-y divide-gray-100">
                 {filteredConversations.map(conv => {
                   const otherUid = conv.participants.find((uid: string) => uid !== user.uid);
-                  const otherName = usersCache[otherUid]?.name || conv.participantNames?.[otherUid] || 'User';
+                  let otherName = usersCache[otherUid]?.name || conv.participantNames?.[otherUid] || 'User';
+                  if (conv.ngoId === otherUid) {
+                    otherName = conv.ngoName || conv.ngoAdminName || otherName;
+                  } else if (conv.volunteerId === otherUid) {
+                    otherName = conv.volunteerName || otherName;
+                  }
                   const otherPhoto = usersCache[otherUid]?.profileImage;
                   const otherRole = usersCache[otherUid]?.role;
                   const unreadCount = conv.unreadCount?.[user.uid] || 0;

@@ -27,6 +27,29 @@ export const getOrCreateConversation = async (
     return convId;
   }
 
+  // Determine who is NGO and who is Volunteer
+  let ngoId, volunteerId, ngoAdminName, volunteerName;
+  if (currentUser.role === 'ngo') {
+    ngoId = currentUser.uid;
+    ngoAdminName = currentUser.displayName || currentUser.name || "Unknown NGO Admin";
+    volunteerId = otherUser.uid;
+    volunteerName = otherUser.displayName || otherUser.name || "Unknown Volunteer";
+  } else {
+    ngoId = otherUser.uid;
+    ngoAdminName = otherUser.displayName || otherUser.name || "Unknown NGO Admin";
+    volunteerId = currentUser.uid;
+    volunteerName = currentUser.displayName || currentUser.name || "Unknown Volunteer";
+  }
+
+  // Fetch NGO data
+  let ngoName = "";
+  if (ngoId) {
+    const ngoDoc = await getDoc(doc(db, "ngos", ngoId));
+    if (ngoDoc.exists()) {
+      ngoName = ngoDoc.data().ngoName || ngoDoc.data().name || "";
+    }
+  }
+
   // Create new conversation document
   await setDoc(convRef, {
     id: convId,
@@ -35,6 +58,11 @@ export const getOrCreateConversation = async (
       [currentUser.uid]: currentUser.displayName || currentUser.name || "Unknown User",
       [otherUser.uid]: otherUser.displayName || otherUser.name || "Unknown User"
     },
+    ngoId: ngoId || null,
+    ngoName: ngoName || null,
+    ngoAdminName: ngoAdminName || null,
+    volunteerId: volunteerId || null,
+    volunteerName: volunteerName || null,
     lastMessage: '',
     lastMessageSenderId: '',
     updatedAt: serverTimestamp(),

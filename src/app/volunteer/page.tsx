@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth, ProtectedRoute } from "@/context/AuthContext";
 import { Navbar } from "@/components/Navbar";
@@ -12,7 +12,7 @@ import toast from "react-hot-toast";
 import { ClipboardList, Gift } from "lucide-react";
 
 export default function VolunteerDashboard() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [availableNeeds, setAvailableNeeds] = useState<Need[]>([]);
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [taskNeeds, setTaskNeeds] = useState<Record<string, Need>>({}); // Map needId -> Need
@@ -88,23 +88,43 @@ export default function VolunteerDashboard() {
   }, [profile?.uid]);
 
   const handleAcceptTask = async (needId: string) => {
-    if (!profile || loadingAction) return;
+    if (!user || loadingAction) return;
     setLoadingAction(true);
     const toastId = toast.loading("Accepting task...");
 
     try {
-      const taskData: Task = {
+      console.log("USER DATA:", user);
+
+      if (!user) {
+        toast.error("User not loaded");
+        return;
+      }
+
+      let fallbackName;
+      if (!user.displayName) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          fallbackName = userDoc.data().name || userDoc.data().displayName;
+        }
+      }
+
+      const volunteerName = user.displayName || (user as any).name || fallbackName || "Anonymous";
+
+      const data = {
         needId,
-        volunteerId: profile.uid,
-        volunteerName: profile.name,
-        status: "in_progress",
-        acceptedAt: Date.now()
+        volunteerId: user.uid,
+        volunteerName: volunteerName,
+        status: "in-progress",
+        createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "tasks"), taskData);
+      await addDoc(collection(db, "tasks"), Object.fromEntries(
+        Object.entries(data).filter(([_, v]) => v !== undefined)
+      ));
+
       await updateDoc(doc(db, "needs", needId), {
         status: "in_progress",
-        assignedVolunteer: profile.uid
+        assignedVolunteer: user.uid
       });
 
       toast.success("Task accepted! Thank you.", { id: toastId });
@@ -134,6 +154,20 @@ export default function VolunteerDashboard() {
         status: "completed",
         resolvedAt: Date.now()
       });
+
+      const userDocRef = doc(db, "users", profile.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const achievements = userData.achievements || [];
+        if (achievements.length === 0) achievements.push("First Task Completed!");
+        
+        await updateDoc(userDocRef, {
+          tasksCompleted: (userData.tasksCompleted || 0) + 1,
+          rating: userData.rating || 5, // Default rating
+          achievements: achievements
+        });
+      }
 
       toast.success("Task completed successfully!", { id: toastId });
     } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any

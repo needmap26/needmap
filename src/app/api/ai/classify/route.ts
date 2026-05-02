@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { title, description } = body;
+    const { title, description, peopleAffected } = body;
 
     if (!description) {
       return NextResponse.json({ error: "Description is required" }, { status: 400 });
@@ -14,27 +14,25 @@ export async function POST(req: Request) {
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = `
-      Analyze the following NGO need and categorize it.
-      
-      Title: ${title}
-      Description: ${description}
-      
-      Return ONLY a JSON object with the following structure:
-      {
-        "category": "food" | "medical" | "shelter" | "general" | "other",
-        "urgency": "low" | "medium" | "high",
-        "priorityScore": 1-100,
-        "keywords": ["array of 3-5 keywords"],
-        "suggestedAction": "short recommendation for volunteers"
-      }
-      
-      Rules:
-      - Category must be one of: food, medical, shelter, general, other.
-      - Urgency must be one of: low, medium, high.
-      - PriorityScore must be an integer between 1 and 100 based on urgency, keywords (e.g. emergency, injured), and context.
-      - Do not include any other text, markdown formatting, or explanations. Ensure the output is strictly valid JSON.
-    `;
+    const prompt = `You are an emergency classification AI.
+Classify the need into:
+- category (food, medical, shelter, rescue, other)
+- urgency (low, medium, high, critical)
+- priority score (1-100)
+
+Consider:
+- number of people affected: ${peopleAffected || "unknown"}
+- keywords like urgent, emergency, immediately
+- risk level
+- Title: ${title}
+- Description: ${description}
+
+Return JSON only:
+{
+  "category": "",
+  "urgency": "",
+  "priority": 0
+}`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -53,17 +51,21 @@ export async function POST(req: Request) {
     }
 
     // Validation & Fallbacks
-    const validCategories = ["food", "medical", "shelter", "general", "other"];
-    const validUrgency = ["low", "medium", "high"];
+    const validCategories = ["food", "medical", "shelter", "rescue", "other", "general", "education"];
+    const validUrgency = ["low", "medium", "high", "critical"];
     
-    if (!validCategories.includes(analysis.category)) analysis.category = "general";
+    if (!validCategories.includes(analysis.category)) analysis.category = "other";
     if (!validUrgency.includes(analysis.urgency)) analysis.urgency = "medium";
-    if (typeof analysis.priorityScore !== 'number') analysis.priorityScore = 50;
-    if (!Array.isArray(analysis.keywords)) analysis.keywords = [];
-    if (!analysis.suggestedAction) analysis.suggestedAction = "Assess the situation and provide appropriate assistance.";
+    
+    const priorityScore = typeof analysis.priority === 'number' ? analysis.priority : parseInt(analysis.priority) || 50;
 
-
-    return NextResponse.json(analysis);
+    return NextResponse.json({
+      category: analysis.category,
+      urgencyLabel: analysis.urgency,
+      priorityScore: priorityScore,
+      keywords: [],
+      suggestedAction: ""
+    });
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);

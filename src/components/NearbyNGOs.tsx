@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, onSnapshot, updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { getOrCreateConversation } from "@/lib/chat";
 import { useRouter } from "next/navigation";
-import { Phone, Mail, MessageCircle, MapPin, Loader2, CheckCircle, HeartHandshake, Gift, Building2 } from "lucide-react";
+import { Phone, Mail, MessageCircle, MapPin, Loader2, CheckCircle, HeartHandshake, Gift, Building2, Users, Plus, Shield, Award } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Haversine formula for distance calculation (in kilometers)
@@ -30,6 +30,7 @@ export function NearbyNGOs() {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingChat, setLoadingChat] = useState<string | null>(null);
+  const [groups, setGroups] = useState<any[]>([]);
   
   const [donatingTo, setDonatingTo] = useState<any | null>(null);
   const [donationDesc, setDonationDesc] = useState("");
@@ -51,6 +52,14 @@ export function NearbyNGOs() {
     } else {
       loadNearbyNGOs(null);
     }
+
+    const unsubGroups = onSnapshot(collection(db, "groups"), snap => {
+      setGroups(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+      unsubGroups();
+    };
   }, []);
 
   const loadNearbyNGOs = async (loc: {lat: number, lng: number} | null) => {
@@ -167,6 +176,19 @@ export function NearbyNGOs() {
     }
   };
 
+  const handleJoinGroup = async (groupId: string) => {
+    if (!user) return toast.error("Please login to join groups");
+    const toastId = toast.loading("Joining group...");
+    try {
+      await updateDoc(doc(db, "groups", groupId), {
+        members: arrayUnion(user.uid)
+      });
+      toast.success("Joined group successfully!", { id: toastId });
+    } catch (err) {
+      toast.error("Failed to join group", { id: toastId });
+    }
+  };
+
   const handleDonateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return toast.error("Please login to donate");
@@ -252,6 +274,61 @@ export function NearbyNGOs() {
                   {ngo.description}
                 </p>
               )}
+
+              {/* Achievements & Stats */}
+              <div className="space-y-2 mb-4 text-sm text-text-secondary">
+                <p className="flex items-center gap-2"><Shield size={14} className="text-gray-400" /> {ngo.tasksCompleted || 0} Total Services</p>
+              </div>
+
+              {ngo.achievements && ngo.achievements.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Achievements</p>
+                  <div className="flex flex-wrap gap-2">
+                    {ngo.achievements.map((ach: string, i: number) => (
+                      <span key={i} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-[10px] font-bold">
+                        {ach}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Volunteer Groups */}
+              <div className="mb-4 pt-4 border-t border-[#E5E3DB]">
+                <p className="text-xs font-bold text-gray-500 uppercase mb-2">Volunteer Groups</p>
+                {(() => {
+                  const ngoGroups = groups.filter(g => g.ngoId === ngo.id);
+                  if (ngoGroups.length === 0) return <p className="text-xs text-gray-400 italic">No open groups.</p>;
+                  return (
+                    <div className="space-y-2">
+                      {ngoGroups.map(group => {
+                        const isMember = group.members?.includes(user?.uid);
+                        return (
+                          <div key={group.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <Users size={14} className="text-gray-500" />
+                              <div>
+                                <p className="text-sm font-bold text-gray-700">{group.groupName}</p>
+                                <p className="text-[10px] text-gray-500">{group.members?.length || 0} members</p>
+                              </div>
+                            </div>
+                            {isMember ? (
+                              <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Joined</span>
+                            ) : (
+                              <button 
+                                onClick={() => handleJoinGroup(group.id)}
+                                className="text-[10px] font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary-dark transition-colors flex items-center gap-1"
+                              >
+                                <Plus size={10} /> Join
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
 
               <div className="grid grid-cols-2 gap-2 mt-auto pt-4 border-t border-[#E5E3DB]">
                 {ngo.phone && (

@@ -122,7 +122,12 @@ export default function ChatWindowPage() {
   }
 
   const otherUid = (conversation.participants as string[]).find((uid: string) => uid !== user.uid) as string;
-  const otherName = otherUser?.name || 'User';
+  let otherName = otherUser?.name || 'User';
+  if (conversation.ngoId === otherUid) {
+    otherName = conversation.ngoAdminName || conversation.ngoName || otherName;
+  } else if (conversation.volunteerId === otherUid) {
+    otherName = conversation.volunteerName || otherName;
+  }
   const otherPhoto = otherUser?.profileImage || '';
   const otherRole = otherUser?.role || 'volunteer';
 

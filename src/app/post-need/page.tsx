@@ -38,7 +38,7 @@ const PostNeedForm = () => {
       const res = await fetch("/api/ai/classify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({ title, description, peopleAffected }),
       });
       
       const analysis = await res.json();
@@ -60,8 +60,8 @@ const PostNeedForm = () => {
         title,
         description,
         category: analysis.category || category,
-        priority: analysis.urgency || "medium",
-        isEmergency: analysis.urgency === "high" || analysis.urgency === "critical",
+        priority: analysis.urgencyLabel || "medium",
+        isEmergency: analysis.urgencyLabel === "high" || analysis.urgencyLabel === "critical",
         priorityScore: analysis.priorityScore || 50,
         keywords: analysis.keywords || [],
         suggestedAction: analysis.suggestedAction || "",

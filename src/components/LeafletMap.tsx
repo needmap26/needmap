@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet.heat';
 import { Need } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
@@ -37,7 +38,8 @@ const getPriorityIcon = (priority: string, isTopPriority: boolean) => {
 L.Marker.prototype.options.icon = defaultIcon;
 
 interface LeafletMapProps {
-  need: Need;
+  need?: Need;
+  needs?: Need[];
   onAcceptTask?: (needId: string) => void;
   isAccepting?: boolean;
 }
@@ -55,14 +57,38 @@ const MapUpdater = ({ center }: { center: { lat: number; lng: number } }) => {
   return null;
 };
 
+const HeatLayer = ({ needs }: { needs: Need[] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!needs || needs.length === 0) return;
+    const heatData = needs.map((n: any) => [
+      n.location.lat,
+      n.location.lng,
+      n.urgency === "high" || n.priority === "high" || n.priority === "critical" ? 1 : 0.5
+    ]);
+    const heatLayer = (L as any).heatLayer(heatData, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17
+    }).addTo(map);
+    return () => {
+      map.removeLayer(heatLayer);
+    };
+  }, [map, needs]);
+  return null;
+};
+
 export default function LeafletMap({
   need,
+  needs = [],
   onAcceptTask,
   isAccepting = false,
 }: LeafletMapProps) {
   const { profile } = useAuth();
+  
+  const allNeeds = need && !needs.find(n => n.id === need.id) ? [need, ...needs] : needs.length ? needs : (need ? [need] : []);
 
-  if (!need?.location?.lat || !need?.location?.lng) {
+  if (allNeeds.length === 0 || !allNeeds[0]?.location?.lat || !allNeeds[0]?.location?.lng) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-sm font-medium">
         Location unavailable
@@ -70,10 +96,12 @@ export default function LeafletMap({
     );
   }
 
+  const centerNeed = need || allNeeds[0];
+
   return (
     <div className="w-full h-full z-0 relative">
       <MapContainer 
-        center={[need.location.lat, need.location.lng]} 
+        center={[centerNeed.location.lat, centerNeed.location.lng]} 
         zoom={15} 
         scrollWheelZoom={true}
         zoomControl={true}
@@ -84,39 +112,43 @@ export default function LeafletMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        <MapUpdater center={need.location} />
+        <MapUpdater center={centerNeed.location} />
+        <HeatLayer needs={allNeeds} />
 
-        <Marker 
-          position={[need.location.lat, need.location.lng]}
-          icon={getPriorityIcon(need.priority || 'medium', true)}
-        >
-          <Popup>
-            <div className="flex flex-col gap-2 min-w-[200px]">
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded text-white ${need.priority === 'critical' || need.priority === 'high' ? 'bg-red-500' : need.priority === 'low' ? 'bg-green-500' : 'bg-orange-500'}`}>
-                  {need.priority || 'Medium'}
-                </span>
-                <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-gray-100 text-gray-600 rounded">
-                  {need.category}
-                </span>
+        {allNeeds.map((n) => (
+          <Marker 
+            key={n.id || Math.random().toString()}
+            position={[n.location.lat, n.location.lng]}
+            icon={getPriorityIcon(n.priority || 'medium', n.id === centerNeed.id)}
+          >
+            <Popup>
+              <div className="flex flex-col gap-2 min-w-[200px]">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded text-white ${n.priority === 'critical' || n.priority === 'high' ? 'bg-red-500' : n.priority === 'low' ? 'bg-green-500' : 'bg-orange-500'}`}>
+                    {n.priority || 'Medium'}
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-gray-100 text-gray-600 rounded">
+                    {n.category}
+                  </span>
+                </div>
+                <h3 className="font-bold text-sm m-0">{n.title}</h3>
+                <p className="text-xs text-gray-600 m-0 line-clamp-2">{n.description}</p>
+                
+                <div className="flex gap-2 mt-2">
+                  {profile?.role === "volunteer" && onAcceptTask && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onAcceptTask(n.id!); }}
+                      disabled={isAccepting}
+                      className="w-full py-1.5 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {isAccepting ? "Accepting..." : "Help (Accept Need)"}
+                    </button>
+                  )}
+                </div>
               </div>
-              <h3 className="font-bold text-sm m-0">{need.title}</h3>
-              <p className="text-xs text-gray-600 m-0 line-clamp-2">{need.description}</p>
-              
-              <div className="flex gap-2 mt-2">
-                {profile?.role === "volunteer" && onAcceptTask && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onAcceptTask(need.id!); }}
-                    disabled={isAccepting}
-                    className="w-full py-1.5 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {isAccepting ? "Accepting..." : "Help (Accept Need)"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </Popup>
-        </Marker>
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );
