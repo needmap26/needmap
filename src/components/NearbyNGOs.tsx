@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { collection, query, where, getDocs, addDoc, onSnapshot, updateDoc, doc, arrayUnion } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, onSnapshot, updateDoc, doc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { getOrCreateConversation } from "@/lib/chat";
@@ -31,6 +31,7 @@ export function NearbyNGOs() {
   const [loading, setLoading] = useState(true);
   const [loadingChat, setLoadingChat] = useState<string | null>(null);
   const [groups, setGroups] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
   
   const [donatingTo, setDonatingTo] = useState<any | null>(null);
   const [donationDesc, setDonationDesc] = useState("");
@@ -57,8 +58,17 @@ export function NearbyNGOs() {
       setGroups(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    let unsubRequests = () => {};
+    if (user?.uid) {
+      const reqQuery = query(collection(db, "groupRequests"), where("volunteerId", "==", user.uid));
+      unsubRequests = onSnapshot(reqQuery, snap => {
+        setRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    }
+
     return () => {
       unsubGroups();
+      unsubRequests();
     };
   }, []);
 
@@ -176,16 +186,21 @@ export function NearbyNGOs() {
     }
   };
 
-  const handleJoinGroup = async (groupId: string) => {
-    if (!user) return toast.error("Please login to join groups");
-    const toastId = toast.loading("Joining group...");
+  const handleRequestJoinGroup = async (group: any) => {
+    if (!user) return toast.error("Please login to request joining");
+    const toastId = toast.loading("Sending request...");
     try {
-      await updateDoc(doc(db, "groups", groupId), {
-        members: arrayUnion(user.uid)
+      await addDoc(collection(db, "groupRequests"), {
+        groupId: group.id,
+        ngoId: group.ngoId,
+        volunteerId: user.uid,
+        volunteerName: user.displayName || user.email || "Volunteer",
+        status: "pending",
+        createdAt: serverTimestamp()
       });
-      toast.success("Joined group successfully!", { id: toastId });
+      toast.success("Request sent successfully!", { id: toastId });
     } catch (err) {
-      toast.error("Failed to join group", { id: toastId });
+      toast.error("Failed to send request", { id: toastId });
     }
   };
 
@@ -303,6 +318,9 @@ export function NearbyNGOs() {
                     <div className="space-y-2">
                       {ngoGroups.map(group => {
                         const isMember = group.members?.includes(user?.uid);
+                        const existingReq = requests.find(r => r.groupId === group.id && r.volunteerId === user?.uid);
+                        const isPending = existingReq?.status === "pending";
+
                         return (
                           <div key={group.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-100">
                             <div className="flex items-center gap-2">
@@ -314,12 +332,14 @@ export function NearbyNGOs() {
                             </div>
                             {isMember ? (
                               <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Joined</span>
+                            ) : isPending ? (
+                              <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded">Requested</span>
                             ) : (
                               <button 
-                                onClick={() => handleJoinGroup(group.id)}
+                                onClick={() => handleRequestJoinGroup(group)}
                                 className="text-[10px] font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary-dark transition-colors flex items-center gap-1"
                               >
-                                <Plus size={10} /> Join
+                                <Plus size={10} /> Request to Join
                               </button>
                             )}
                           </div>

@@ -23,8 +23,8 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<NeedStatus | "all">("all");
   const [initialLoading, setInitialLoading] = useState(true);
   const [donations, setDonations] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [volunteers, setVolunteers] = useState<any[]>([]);
+  // removed groups and volunteers state
+
   const [newGroupName, setNewGroupName] = useState("");
   const [selectedVolunteers, setSelectedVolunteers] = useState<string[]>([]);
 
@@ -70,26 +70,12 @@ export default function DashboardPage() {
       setDonations(docs.sort((a: any, b: any) => b.createdAt - a.createdAt));
     });
 
-    const gQuery = query(
-      collection(db, "groups"),
-      where("ngoId", "==", profile.uid)
-    );
-    const unsubscribeGroups = onSnapshot(gQuery, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setGroups(docs.sort((a: any, b: any) => b.createdAt - a.createdAt));
-    });
 
-    const vQuery = query(collection(db, "users"), where("role", "==", "volunteer"));
-    const unsubscribeVolunteers = onSnapshot(vQuery, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setVolunteers(docs);
-    });
 
     return () => {
       unsubscribe();
       unsubscribeDonations();
-      unsubscribeGroups();
-      unsubscribeVolunteers();
+
     };
   }, [profile?.uid]);
 
@@ -136,25 +122,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateGroup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newGroupName.trim() || !profile) return;
-    const toastId = toast.loading("Creating group...");
-    try {
-      await addDoc(collection(db, "groups"), {
-        ngoId: profile.uid,
-        ngoName: profile.ngoName || profile.name,
-        groupName: newGroupName.trim(),
-        members: selectedVolunteers,
-        createdAt: Date.now()
-      });
-      setNewGroupName("");
-      setSelectedVolunteers([]);
-      toast.success("Group created successfully!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to create group", { id: toastId });
-    }
-  };
+
 
   const tabs: { id: NeedStatus | "all"; label: string }[] = [
     { id: "all", label: "All Needs" },
@@ -426,75 +394,7 @@ export default function DashboardPage() {
           </>
           )}
 
-          {/* GROUPS SECTION */}
-          {!initialLoading && (
-            <div className="mt-12 mb-6">
-              <h2 className="text-2xl font-black text-foreground">Volunteer Groups</h2>
-              <p className="text-text-secondary mt-1">Create and manage groups to coordinate with volunteers.</p>
-              
-              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Create Group Form */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-xl border border-[#E5E3DB] shadow-sm h-fit">
-                  <h3 className="font-bold text-lg mb-4">Create New Group</h3>
-                  <form onSubmit={handleCreateGroup} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Group Name</label>
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full px-3 py-2 border rounded-lg"
-                        placeholder="e.g. Disaster Relief Team"
-                        value={newGroupName}
-                        onChange={e => setNewGroupName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Select Volunteers</label>
-                      <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-2">
-                        {volunteers.map(v => (
-                          <label key={v.id} className="flex items-center gap-2 text-sm p-1 hover:bg-gray-50 rounded cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedVolunteers.includes(v.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelectedVolunteers([...selectedVolunteers, v.id]);
-                                else setSelectedVolunteers(selectedVolunteers.filter(id => id !== v.id));
-                              }}
-                            />
-                            <span>{v.name || 'Unknown'}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <button type="submit" disabled={!newGroupName.trim()} className="w-full py-2 bg-primary text-white font-bold rounded-lg disabled:opacity-50">
-                      Create Group
-                    </button>
-                  </form>
-                </div>
 
-                {/* List Groups */}
-                <div className="lg:col-span-2">
-                  <div className="grid gap-4">
-                    {groups.length === 0 ? (
-                      <EmptyState title="No groups yet" description="Create a group to start coordinating." className="border-dashed" />
-                    ) : (
-                      groups.map(group => (
-                        <div key={group.id} className="bg-white p-5 rounded-xl border border-[#E5E3DB] shadow-sm flex items-center justify-between">
-                          <div>
-                            <h3 className="font-bold text-lg">{group.groupName}</h3>
-                            <p className="text-sm text-text-secondary mt-1">{group.members?.length || 0} members</p>
-                          </div>
-                          <Link href={`/groups/${group.id}`} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 flex items-center gap-2">
-                            <MessageSquare size={16} /> Open Chat
-                          </Link>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </main>
       </div>
     </ProtectedRoute>

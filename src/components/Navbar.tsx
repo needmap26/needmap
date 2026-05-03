@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Menu, X, Map as MapIcon, LayoutDashboard, HeartHandshake, LogOut, Bell, Settings, MessageSquare, Search, Building2, UserCircle } from "lucide-react";
+import { Menu, X, Map as MapIcon, LayoutDashboard, HeartHandshake, LogOut, Bell, Settings, MessageSquare, Search, Building2, UserCircle, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationDrawer } from "./ui/NotificationDrawer";
 import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
@@ -51,6 +51,7 @@ export const Navbar = () => {
   const navLinks = (profile?.role === "ngo") ? [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
     { name: "Post Need", href: "/post-need", icon: <HeartHandshake size={18} /> },
+    { name: "Groups", href: "/groups", icon: <Users size={18} /> },
     { name: "Volunteers", href: "/volunteers", icon: <UserCircle size={18} /> },
   ] : profile?.role === "volunteer" ? [
     { name: "Search", href: "/volunteer", icon: <Search size={18} /> },
