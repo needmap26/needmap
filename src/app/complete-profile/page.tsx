@@ -47,15 +47,20 @@ function CompleteProfileContent() {
       router.push("/auth");
     }
     // Only redirect AWAY if they are an NGO and already have an NGO profile,
-    // OR if they are a volunteer and have a profile.
+    // OR if they are a volunteer and have all required fields.
     if (!authLoading && profile) {
       if (profile.role === "ngo" && !profile.hasNgoProfile) {
         // Stay here
         setRole("ngo");
         if (user?.email && !contactEmail) setContactEmail(user.email);
         if (user?.displayName && !name) setName(user.displayName);
+      } else if (profile.role === "volunteer" && (!profile.name || !profile.location || !profile.phone)) {
+        // Stay here
+        setRole("volunteer");
+        if (user?.email && !contactEmail) setContactEmail(user.email);
+        if (user?.displayName && !name) setName(user.displayName);
       } else {
-        router.push(profile.role === "ngo" ? "/dashboard" : "/map");
+        router.push(profile.role === "ngo" ? "/dashboard" : "/volunteer");
       }
     } else if (user && !contactEmail) {
        setContactEmail(user.email || "");
@@ -124,7 +129,8 @@ function CompleteProfileContent() {
       if (role === "volunteer") {
         userData.skills = skills;
         userData.city = city;
-        userData.location = { lat: 0, lng: 0, city };
+        userData.phone = phone || "";
+        userData.location = { lat: 0, lng: 0, city }; // Ideally get real lat/lng, using 0 for now
         userData.coins = 0;
         userData.level = "Newcomer";
         userData.badges = ["NeedMap Pioneer"];
@@ -169,7 +175,7 @@ function CompleteProfileContent() {
       }
 
       toast.success(role === "ngo" ? "NGO profile created successfully" : "Profile completed successfully!");
-      router.push(role === "ngo" ? "/dashboard" : "/map");
+      router.push(role === "ngo" ? "/dashboard" : "/volunteer");
       
       // Force refresh to reload auth context profile & global states
       window.location.reload();
@@ -313,9 +319,10 @@ function CompleteProfileContent() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Phone Number (Optional)</label>
+                <label className="block text-sm font-medium text-foreground mb-1">{role === "ngo" ? "Phone Number (Optional)" : "Phone Number *"}</label>
                 <input
                   type="tel"
+                  required={role === "volunteer"}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -384,6 +391,20 @@ function CompleteProfileContent() {
                )}
             </div>
           </>
+        )}
+
+        {role === "volunteer" && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Phone Number *</label>
+            <input
+              type="tel"
+              required
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 234 567 8900"
+            />
+          </div>
         )}
 
         {role === "volunteer" && (

@@ -20,6 +20,7 @@ export default function GroupChatPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,12 +35,14 @@ export default function GroupChatPage() {
         const data = docSnap.data();
         if (data.ngoId !== user.uid && !data.members?.includes(user.uid)) {
           toast.error("Unauthorized access to group");
-          router.push('/dashboard');
+          setAccessDenied(true);
+          setLoading(false);
           return;
         }
         setGroup({ id: docSnap.id, ...data });
       } else {
-        router.push('/dashboard');
+        setAccessDenied(true);
+        setLoading(false);
       }
     };
 
@@ -89,11 +92,29 @@ export default function GroupChatPage() {
     }
   };
 
-  if (!user || loading || !group) {
+  if (!user || loading) {
     return (
       <div className="flex flex-col h-[100dvh] bg-[#FAFAF9]">
         <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10 h-16"></header>
         <ChatSkeleton />
+      </div>
+    );
+  }
+
+  if (accessDenied || !group) {
+    return (
+      <div className="flex flex-col h-[100dvh] bg-[#FAFAF9] items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-xl shadow-sm text-center max-w-md w-full border border-red-100">
+          <Shield className="mx-auto text-red-500 mb-4" size={48} />
+          <h2 className="text-2xl font-black text-foreground mb-2">Access Denied</h2>
+          <p className="text-text-secondary mb-6">You are not a member of this group. Please request to join first.</p>
+          <button 
+            onClick={() => router.back()}
+            className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }

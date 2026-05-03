@@ -56,6 +56,7 @@ export const Navbar = () => {
   ] : profile?.role === "volunteer" ? [
     { name: "Search", href: "/volunteer", icon: <Search size={18} /> },
     { name: "NGOs", href: "/ngos", icon: <Building2 size={18} /> },
+    { name: "My Groups", href: "/my-groups", icon: <Users size={18} /> },
     { name: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
   ] : [];
 

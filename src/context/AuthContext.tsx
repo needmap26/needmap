@@ -80,14 +80,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Global route protection for incomplete NGO profiles
+  // Global route protection for incomplete profiles
   useEffect(() => {
-    if (!loading && profile && profile.role === "ngo" && profile.hasNgoProfile === false) {
-      if (window.location.pathname !== "/complete-profile") {
-        router.push("/complete-profile");
+    if (!loading && user) {
+      const isCompleteProfileRoute = window.location.pathname === "/complete-profile";
+      const isAuthRoute = window.location.pathname === "/auth";
+      
+      if (!isCompleteProfileRoute && !isAuthRoute) {
+        if (!profile) {
+          router.push("/complete-profile");
+        } else if (profile.role === "ngo" && profile.hasNgoProfile === false) {
+          router.push("/complete-profile");
+        } else if (profile.role === "volunteer") {
+          // Check required fields for volunteer
+          if (!profile.name || !profile.location || !profile.phone) {
+             router.push("/complete-profile");
+          }
+        }
       }
     }
-  }, [loading, profile, router]);
+  }, [loading, user, profile, router]);
 
   const logout = async () => {
     try {
